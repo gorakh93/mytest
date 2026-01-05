@@ -42,15 +42,18 @@ $DB_USER = getenv('DB_USER') ?: 'root';
 $DB_PASS = getenv('DB_PASS') ?: '';
 $DB_PORT = getenv('DB_PORT') ?: null;
 
-$dsn = "mysql:host={$DB_HOST}" . ($DB_PORT ? (";port={$DB_PORT}") : "") . ";dbname={$DB_NAME};charset=utf8mb4";
-$options = [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-];
-try {
-    $pdo = new PDO($dsn, $DB_USER, $DB_PASS, $options);
-} catch (PDOException $e) {
+$port = $DB_PORT ? (int)$DB_PORT : 3306;
+// Create mysqli connection and set charset
+$mysqli = @new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $port);
+if ($mysqli->connect_errno) {
     http_response_code(500);
-    echo "Database connection failed: " . htmlspecialchars($e->getMessage());
+    echo "Database connection failed: " . htmlspecialchars($mysqli->connect_error);
     exit;
 }
+if (!$mysqli->set_charset('utf8mb4')) {
+    // Not fatal, but try to continue
+    error_log('Failed to set charset: ' . $mysqli->error);
+}
+
+// Expose $mysqli globally for legacy scripts
+// NOTE: previous code used $pdo; update scripts to use $mysqli instead

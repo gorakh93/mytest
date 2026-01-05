@@ -8,26 +8,35 @@ $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : (current_user()['id'
 if (!$testId) { echo "Missing test_id"; exit; }
 
 // Load test paper
-$stmt = $pdo->prepare('SELECT id, title, description, duration_minutes FROM test_papers WHERE id = ? AND is_published = 1');
-$stmt->execute([$testId]);
-$test = $stmt->fetch();
+global $mysqli;
+$stmt = $mysqli->prepare('SELECT id, title, description, duration_minutes FROM test_papers WHERE id = ? AND is_published = 1');
+$stmt->bind_param('i', $testId);
+$stmt->execute();
+$res = $stmt->get_result();
+$test = $res ? $res->fetch_assoc() : null;
 if (!$test) { echo "Test not found or not published."; exit; }
 
 // Load questions for the test paper ordered by position
-$stmt = $pdo->prepare('SELECT q.id, q.question_text, q.question_type, COALESCE(tpq.marks, q.default_marks) AS marks FROM test_paper_questions tpq JOIN questions q ON q.id = tpq.question_id WHERE tpq.test_paper_id = ? ORDER BY tpq.position');
-$stmt->execute([$testId]);
-$questions = $stmt->fetchAll();
+// Load questions
+$stmt = $mysqli->prepare('SELECT q.id, q.question_text, q.question_type, COALESCE(tpq.marks, q.default_marks) AS marks FROM test_paper_questions tpq JOIN questions q ON q.id = tpq.question_id WHERE tpq.test_paper_id = ? ORDER BY tpq.position');
+$stmt->bind_param('i', $testId);
+$stmt->execute();
+$res = $stmt->get_result();
+$questions = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 
 // Fetch options for all question ids
 $qIds = array_map(function($r){return $r['id'];}, $questions);
 $options = [];
 if (!empty($qIds)){
-    $in = implode(',', array_fill(0,count($qIds),'?'));
-    $stmt = $pdo->prepare("SELECT id, question_id, option_label, option_text FROM options WHERE question_id IN ($in) ORDER BY id");
-    $stmt->execute($qIds);
-    foreach ($stmt->fetchAll() as $opt) {
-        $options[$opt['question_id']][] = $opt;
+  $ints = array_map('intval', $qIds);
+  $inList = implode(',', $ints);
+  $sql = "SELECT id, question_id, option_label, option_text FROM options WHERE question_id IN ($inList) ORDER BY id";
+  $res = $mysqli->query($sql);
+  if ($res) {
+    while ($opt = $res->fetch_assoc()) {
+      $options[$opt['question_id']][] = $opt;
     }
+  }
 }
 
 ?><!doctype html>

@@ -1,4 +1,4 @@
-$<?php
+<?php
 require_once __DIR__ . '/../auth.php';
 require_login();
 function h($s){return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');}
@@ -12,37 +12,43 @@ $answers_text = $_POST['answers_text'] ?? [];
 
 if (!$testPaperId) { echo "Missing test id"; exit; }
 
+global $mysqli;
 try {
-    $pdo->beginTransaction();
+    $mysqli->begin_transaction();
 
     // Create attempt
-    $stmt = $pdo->prepare('INSERT INTO user_attempts (user_id, test_paper_id, started_at, finished_at, status) VALUES (?, ?, NOW(), NOW(), ?)');
+    $stmt = $mysqli->prepare('INSERT INTO user_attempts (user_id, test_paper_id, started_at, finished_at, status) VALUES (?, ?, NOW(), NOW(), ?)');
     $status = 'completed';
-    $stmt->execute([$userId, $testPaperId, $status]);
-    $attemptId = $pdo->lastInsertId();
+    $stmt->bind_param('iis', $userId, $testPaperId, $status);
+    $stmt->execute();
+    $attemptId = $mysqli->insert_id;
 
     // Load questions and correct options
-    $stmt = $pdo->prepare('SELECT tpq.question_id AS qid, COALESCE(tpq.marks,q.default_marks) AS marks, q.question_type FROM test_paper_questions tpq JOIN questions q ON q.id = tpq.question_id WHERE tpq.test_paper_id = ?');
-    $stmt->execute([$testPaperId]);
-    $qrows = $stmt->fetchAll();
+    $stmt = $mysqli->prepare('SELECT tpq.question_id AS qid, COALESCE(tpq.marks,q.default_marks) AS marks, q.question_type FROM test_paper_questions tpq JOIN questions q ON q.id = tpq.question_id WHERE tpq.test_paper_id = ?');
+    $stmt->bind_param('i', $testPaperId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $qrows = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 
     // Prepare insert for user_answers
-    $stmtInsert = $pdo->prepare('INSERT INTO user_answers (attempt_id, question_id, selected_option_id, answer_text, is_correct, marks_obtained, answered_at) VALUES (?, ?, ?, ?, ?, ?, NOW())');
+    $stmtInsert = $mysqli->prepare('INSERT INTO user_answers (attempt_id, question_id, selected_option_id, answer_text, is_correct, marks_obtained, answered_at) VALUES (?, ?, ?, ?, ?, ?, NOW())');
 
     $totalScore = 0.0;
     $correctCount = 0;
     $wrongCount = 0;
 
     foreach ($qrows as $qr) {
-        $qid = $qr['qid'];
+        $qid = (int)$qr['qid'];
         $qtype = $qr['question_type'];
         $marks = (float)$qr['marks'];
 
         if ($qtype === 'mcq' || $qtype === 'multi-select') {
             // correct option ids
-            $stmt = $pdo->prepare('SELECT id FROM options WHERE question_id = ? AND is_correct = 1');
-            $stmt->execute([$qid]);
-            $correct = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+            $stmtC = $mysqli->prepare('SELECT id FROM options WHERE question_id = ? AND is_correct = 1');
+            $stmtC->bind_param('i', $qid);
+            $stmtC->execute();
+            $resC = $stmtC->get_result();
+            $correct = array_map('intval', array_column($resC ? $resC->fetch_all(MYSQLI_ASSOC) : [], 'id'));
 
             $selected = [];
             if (isset($answers[$qid])) {
@@ -50,37 +56,39 @@ try {
                 else $selected = [ (int)$answers[$qid] ];
             }
 
-            // For multi-select compare sets; for mcq expect single selection
             sort($correct); sort($selected);
             $isCorrect = ($correct === $selected) ? 1 : 0;
             $marksObtained = $isCorrect ? $marks : 0.0;
 
             if (empty($selected)) {
-                // insert a null selected_option row to mark unanswered
-                $stmtInsert->execute([$attemptId, $qid, null, null, 0, 0.0]);
+                $null = null;
+                $stmtInsert->bind_param('iissid', $attemptId, $qid, $null, $null, $isCorrect, $marksObtained);
+                // For binding nulls in mysqli, use null values after specifying types; mysqli will convert
+                $stmtInsert->execute();
                 $wrongCount++;
             } else {
-                // insert one row per selected option
                 foreach ($selected as $sid) {
-                    $stmtInsert->execute([$attemptId, $qid, $sid, null, $isCorrect, $marksObtained]);
+                    $sid = (int)$sid;
+                    $stmtInsert->bind_param('iiisid', $attemptId, $qid, $sid, $null, $isCorrect, $marksObtained);
+                    $stmtInsert->execute();
                 }
                 if ($isCorrect) $correctCount++; else $wrongCount++;
             }
             $totalScore += $marksObtained;
         } else {
-            // descriptive or numeric: store text, cannot auto-grade
             $text = isset($answers_text[$qid]) ? trim($answers_text[$qid]) : null;
-            $stmtInsert->execute([$attemptId, $qid, null, $text, null, null]);
+            $stmtInsert->bind_param('iissid', $attemptId, $qid, $null, $text, $null, $null);
+            $stmtInsert->execute();
         }
     }
 
     // Update attempt with results
-    $stmt = $pdo->prepare('UPDATE user_attempts SET score = ?, correct_count = ?, wrong_count = ? WHERE id = ?');
-    $stmt->execute([$totalScore, $correctCount, $wrongCount, $attemptId]);
+    $stmtU = $mysqli->prepare('UPDATE user_attempts SET score = ?, correct_count = ?, wrong_count = ? WHERE id = ?');
+    $stmtU->bind_param('diii', $totalScore, $correctCount, $wrongCount, $attemptId);
+    $stmtU->execute();
 
-    $pdo->commit();
+    $mysqli->commit();
 
-    // Show simple result
     ?><!doctype html>
     <html><head><meta charset="utf-8"><title>Result</title></head><body>
     <div class="inner">
@@ -95,7 +103,7 @@ try {
     exit;
 
 } catch (Exception $e) {
-    if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
+    if ($mysqli) $mysqli->rollback();
     echo 'Submission failed: ' . h($e->getMessage());
     exit;
 }

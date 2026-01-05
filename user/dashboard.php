@@ -8,8 +8,9 @@ $sessionUser = current_user();
 $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : ($sessionUser['id'] ?? null);
 
 // Fetch exams and their test papers
-$stmt = $pdo->query('SELECT e.id AS exam_id, e.name AS exam_name, tp.id AS test_id, tp.title AS test_title, tp.duration_minutes FROM exams e LEFT JOIN test_papers tp ON tp.exam_id = e.id AND tp.is_published = 1 ORDER BY e.name, tp.id');
-$rows = $stmt->fetchAll();
+$GLOBALS['exams_sql'] = 'SELECT e.id AS exam_id, e.name AS exam_name, tp.id AS test_id, tp.title AS test_title, tp.duration_minutes FROM exams e LEFT JOIN test_papers tp ON tp.exam_id = e.id AND tp.is_published = 1 ORDER BY e.name, tp.id';
+$res = $GLOBALS['mysqli']->query($GLOBALS['exams_sql']);
+$rows = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 
 $exams = [];
 foreach ($rows as $r) {

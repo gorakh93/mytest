@@ -4,11 +4,14 @@ require_once __DIR__ . '/db/connection.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 function current_user() {
-    global $pdo;
+    global $mysqli;
     if (empty($_SESSION['user_id'])) return null;
-    $stmt = $pdo->prepare('SELECT id,name,email,role FROM users WHERE id = ? LIMIT 1');
-    $stmt->execute([$_SESSION['user_id']]);
-    return $stmt->fetch();
+    $id = (int)$_SESSION['user_id'];
+    $stmt = $mysqli->prepare('SELECT id,name,email,role FROM users WHERE id = ? LIMIT 1');
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    return $res ? $res->fetch_assoc() : null;
 }
 
 function require_login() {
@@ -30,10 +33,12 @@ function require_admin() {
 }
 
 function login_user($email, $password) {
-    global $pdo;
-    $stmt = $pdo->prepare('SELECT id, password_hash FROM users WHERE email = ? LIMIT 1');
-    $stmt->execute([$email]);
-    $u = $stmt->fetch();
+    global $mysqli;
+    $stmt = $mysqli->prepare('SELECT id, password_hash FROM users WHERE email = ? LIMIT 1');
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $u = $res ? $res->fetch_assoc() : null;
     if ($u && password_verify($password, $u['password_hash'])) {
         session_regenerate_id(true);
         $_SESSION['user_id'] = $u['id'];
