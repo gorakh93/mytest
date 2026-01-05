@@ -1,0 +1,13 @@
+/* Basic responsive styles */
+*{box-sizing:border-box}
+body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#222;background:#f7f7f7}
+.inner{max-width:1000px;margin:0 auto;padding:0 16px}
+.site-header{background:#1e90ff;color:#fff;padding:12px 0}
+.site-title{margin:0;display:inline-block}
+.site-nav{float:right}
+.site-nav a{color:#fff;margin-left:16px;text-decoration:none}
+.container{padding:28px}
+.features{display:flex;gap:20px}
+.features article{background:#fff;padding:16px;border-radius:6px;flex:1}
+.site-footer{background:#222;color:#eee;padding:12px 0;margin-top:28px}
+@media(max-width:640px){.features{flex-direction:column}.site-nav{float:none;text-align:right;margin-top:8px}}
