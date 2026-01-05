@@ -1,9 +1,12 @@
 <?php
 // Run migrations from create_schema.sql using mysqli->multi_query
-$host = 'localhost';
-$user = 'root';
-$pass = '';
 $sqlFile = __DIR__ . '/create_schema.sql';
+
+// Load DB config from environment (falls back to defaults)
+$DB_HOST = getenv('DB_HOST') ?: 'localhost';
+$DB_USER = getenv('DB_USER') ?: 'root';
+$DB_PASS = getenv('DB_PASS') ?: '';
+$DB_PORT = getenv('DB_PORT') ?: null;
 
 if (!file_exists($sqlFile)) {
     echo "SQL file not found: $sqlFile\n";
@@ -16,7 +19,11 @@ if ($sql === false) {
     exit(1);
 }
 
-$mysqli = new mysqli($host, $user, $pass);
+if ($DB_PORT) {
+    $mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASS, '', (int)$DB_PORT);
+} else {
+    $mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASS);
+}
 if ($mysqli->connect_errno) {
     echo "Connect failed: ({$mysqli->connect_errno}) {$mysqli->connect_error}\n";
     exit(1);
