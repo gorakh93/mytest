@@ -36,14 +36,14 @@ $projectRoot = dirname(__DIR__);
 
 load_dotenv($projectRoot . DIRECTORY_SEPARATOR . '.env');
 
-echo "good";
-
 // Read DB config from environment with sensible defaults
 $DB_HOST = getenv('DB_HOST') ?: 'localhost';
 $DB_NAME = getenv('DB_NAME') ?: 'test_series';
 $DB_USER = getenv('DB_USER') ?: 'root';
 $DB_PASS = getenv('DB_PASS') ?: '';
 $DB_PORT = getenv('DB_PORT') ?: null;
+
+echo $DB_HOST;die;
 
 $port = $DB_PORT ? (int)$DB_PORT : 3306;
 // Create mysqli connection and set charset
