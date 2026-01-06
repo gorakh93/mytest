@@ -33,6 +33,8 @@ function load_dotenv($path)
 
 // Load .env from project root (one level up from this file)
 $projectRoot = dirname(__DIR__);
+
+echo $projectRoot . DIRECTORY_SEPARATOR . '.env';die;
 load_dotenv($projectRoot . DIRECTORY_SEPARATOR . '.env');
 
 // Read DB config from environment with sensible defaults
