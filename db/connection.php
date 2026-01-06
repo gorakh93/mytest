@@ -43,8 +43,6 @@ $DB_USER = getenv('DB_USER') ?: 'root';
 $DB_PASS = getenv('DB_PASS') ?: '';
 $DB_PORT = getenv('DB_PORT') ?: null;
 
-echo $DB_HOST;die;
-
 $port = $DB_PORT ? (int)$DB_PORT : 3306;
 // Create mysqli connection and set charset
 $mysqli = @new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $port);
@@ -54,7 +52,6 @@ if ($mysqli->connect_errno) {
     exit;
 }
 
-echo "heree";die;
 if (!$mysqli->set_charset('utf8mb4')) {
     // Not fatal, but try to continue
     error_log('Failed to set charset: ' . $mysqli->error);
