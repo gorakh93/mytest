@@ -52,6 +52,8 @@ if ($mysqli->connect_errno) {
     exit;
 }
 
+echo "Connected to database successfully.\n";die;
+
 if (!$mysqli->set_charset('utf8mb4')) {
     // Not fatal, but try to continue
     error_log('Failed to set charset: ' . $mysqli->error);
